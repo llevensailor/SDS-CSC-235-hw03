@@ -298,3 +298,126 @@ let myData = [
       "total_millions": "52"
     }
   ]
+const famArray = d3.rollup(myData, v => v.length, d => d.family);
+console.log(famArray);
+
+const data = Array.from(famArray, ([family, length]) => ({family, length}));
+let height = 400;
+let width = 1000;
+let margin = 50;
+console.log(data);
+let frame = d3.select("#bar-chart")
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+let linearScale = d3.scaleLinear()
+    .range([height - margin, margin])
+    .domain([0, d3.max(data, function(d){ return d.length; })]);
+
+frame.append("g")
+    .attr("transform", `translate(${margin}, 0)`)
+    .call(d3.axisLeft(linearScale));
+
+let bandScale = d3.scaleBand()
+    .domain(data.map(function(d){ return d.family;}))
+    .range([margin, width - margin])
+    .paddingInner(0.1);
+    
+frame.append("g")
+    .attr("transform", `translate(0, ${height - margin})`)
+    .call(d3.axisBottom(bandScale));
+
+frame.selectAll("rect")
+    .data(data)
+    .join("rect")
+        .attr("x", function(d, i){
+            return bandScale(d.family);
+        })
+        .attr("y", function(d, i){
+          return linearScale(d.length);
+        })
+        .attr("width", bandScale.bandwidth())
+        .attr("height", function(d, i){
+          return height - margin - linearScale(d.length);
+        })
+        .attr("fill", "lightblue")
+        .attr("stroke", "black")
+        .on("click", function(event, d){
+          const isHighlighted = d3.select(this).classed("highlighted");
+          d3.select(this).classed("highlighted", !isHighlighted)
+          .attr("fill", !isHighlighted ? "yellow" : "lightblue");
+
+        })
+
+frame.append("text")
+    .attr("transform", "translate(" + width/2 + "," + (height - margin/3) + ")")
+    .attr("text-anchor", "middle")
+    .text("Language Family");
+
+frame.append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("y", margin/3)
+    .attr("x", -height/2)
+    .attr("text-anchor", "middle")
+    .text("Number of Languages");
+
+frame.append("text")
+    .attr("x", width/2)
+    .attr("y", margin/2)
+    .style("font-size", "20px")
+    .attr("text-anchor", "middle")
+    .text("Number of Languages in Each Family");
+
+let height2 = 400;
+let width2 = 400;
+let radius = Math.min(width2, height2) / 2 - 20;
+
+let pieframe = d3.select("#pie-chart")
+    .append("svg")
+    .attr("width", width2)
+    .attr("height", height2)
+    .append("g")
+    .attr("transform", "translate(" + width2 / 2 + "," + height2 / 2 + ")");
+
+let colorScale = d3.scaleOrdinal()
+    .domain(data.map(function(d){ return d.family;}))
+    .range(d3.schemeCategory10);
+
+let pie = d3.pie()
+        .value(function(d){ return d.length; });
+
+let arc = d3.arc()
+        .innerRadius(0)
+        .outerRadius(radius);
+
+
+let labelArc = d3.arc()
+        .innerRadius(radius * 0.7)
+        .outerRadius(radius * 0.7);
+
+pieframe.selectAll("path")
+        .data(pie(data))
+        .join("path")
+        .attr("d", arc)
+        .attr("fill", function(d){ return colorScale(d.data.family); })
+        .attr("stroke", "black");
+
+
+pieframe.append("text")
+    .attr("x", 0)
+    .attr("y", -height2/2 + 15)
+    .style("font-size", "20px")
+    .attr("text-anchor", "middle")
+    .text("Language Families");
+
+let text = d3.select("#pie-chart")
+        .append("p")
+        .text("Click on a slice to see the family name");
+
+pieframe.selectAll("path")
+        .on("click", function(event, d){
+          const total = d3.sum(data, function(d){ return d.length; });
+          const perct = (d.data.length / total * 100).toFixed(2);
+          text.text("The family " + d.data.family + " has " + perct + "% of the languages in the dataset.");
+        })
